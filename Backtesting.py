@@ -1,52 +1,31 @@
-import numpy as np
+import pandas as pd
+import numpy as np 
 
-def split_sequence(timeseries, n_steps):
-    X, y = list(), list()
-    for i in range(len(timeseries)):
-        end_ix = i + n_steps
-        if end_ix > len(timeseries) - 1:
-            break
-        seq_x, seq_y = timeseries[i:end_ix], timeseries[end_ix]
-        X.append(seq_x)
-        y.append(seq_y)
-    return np.array(X), np.array(y)
-
-def backtest_strategy(timeseries, n_steps, quantilles_decs, VaR_model, ES_model=None):
-    # Split the time series into sequences
-    X, y = split_sequence(timeseries, n_steps)
-
-    # Initialize metrics
-    VaR_exceedance = 0
+def backtest(timeseries_df, target_col, VaR_model,ESModel = None):
+    VaR_breaches = 0
     MAE = 0
     RMSE = 0
-    Avg_ES = 0
-
-    for i in range(len(X)):
-        # Predict the VaR
-        VaR = VaR_model.predict(X[i].reshape(1, -1))[0]  
-        
-        if y[i] < VaR:
-            VaR_exceedance += 1
-            # Predict the ES only if model is provided
-            if ES_model is not None:
-                ES = ES_model.predict(X[i].reshape(1, -1))[0]
-                Avg_ES += ES
-            # Update the MAE and RMSE
-            MAE += abs(y[i] - VaR)
-            RMSE += (y[i] - VaR) ** 2
-
-    # Avoid division by zero
-    if VaR_exceedance > 0:
-        MAE /= VaR_exceedance
-        RMSE = np.sqrt(RMSE / VaR_exceedance)
-        if ES_model is not None:
-            Avg_ES /= VaR_exceedance
-    else:
+    X = timeseries_df.drop(target_col, axis = 1)
+    X.drop(['Date','Name_idx'], axis = 1, inplace = True)
+    y = timeseries_df[target_col]
+    for i in range(len(timeseries_df)):
+        y_pred = VaR_model.predict(X.iloc[i].values.reshape(1,-1))
+        y_true = y.iloc[i]
+        if y_true < y_pred:
+            VaR_breaks += 1
+            if ESModel is not None:
+                ES = ESModel.predict(X.iloc[i].values.reshape(1,-1))
+                MAE += abs(y_true - ES)
+                RMSE += (y_true - ES)**2
+    if VaR_breaks == 0:
         MAE = 0
         RMSE = 0
-        Avg_ES = 0
-
-    return VaR_exceedance, MAE, RMSE, Avg_ES
+    else:
+        MAE = MAE/VaR_breaches
+        RMSE = np.sqrt(RMSE/VaR_breaches)
+    exp_breaches = len(timeseries_df)*0.025
+    return exp_breaches, VaR_breaks, MAE, RMSE
 
 
     
+        
