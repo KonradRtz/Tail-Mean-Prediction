@@ -1,5 +1,2 @@
-DCOILWTICO.csv
-Dow Jones Industrial Average Historical Data.csv
-g.csv
-*.csv
-ML.ipynb
+sp100_sequences_log_return.feather
+*.feather
